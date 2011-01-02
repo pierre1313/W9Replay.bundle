@@ -26,5 +26,9 @@
 	<string>0</string>
 	<key>PlexClientPlatforms</key>
 	<string>MacOSX</string>
+	<key>PlexMediaContainer</key>
+	<array>
+		<string>Flash</string>
+	</array>
 </dict>
 </plist>
