@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from PMS import *
 import base64, datetime, time
 
 ####################################################################################################
@@ -14,8 +13,6 @@ ART    = "art-default.jpg"
 ICON   = "icon-default.png"
 
 CATALOG_KEY = "ElFsg.Ot"
-CATALOG_XML = ""
-IMAGES_SERVER = ""
 CONFIGURATION_URL = "http://www.w9replay.fr/files/w9configuration_lv3.xml?t=1"
 
 ####################################################################################################
@@ -29,17 +26,17 @@ def Start():
 	MediaContainer.art = R(ART)
 	MediaContainer.title1 = NAME
 	DirectoryItem.thumb = R(ICON)
-	HTTP.SetcacheTime = CACHE_1HOUR
+	HTTP.CacheTime = CACHE_1HOUR
+	
+	Dict['CATALOG_XML'] = ''
+	Dict['IMAGES_SERVER'] = ''
 
 
 def VideoMainMenu():
 
-	global CATALOG_XML
-	global IMAGES_SERVER
-
 	dir = MediaContainer(viewGroup="Coverflow")
 	try:
-		xml = HTTP.Request(CONFIGURATION_URL)
+		xml = HTTP.Request(CONFIGURATION_URL).content
 	except Ex.HTTPError, e:
 		Log(NAME + " Plugin : " + str(e))
 		return MessageContainer(NAME, "Erreur lors de la récupération de la configuration.")
@@ -47,12 +44,12 @@ def VideoMainMenu():
 		Log(NAME + " Plugin : " + str(e))
 		return MessageContainer(NAME, "Erreur lors de la récupération de la configuration.")
 
-	IMAGES_SERVER = XML.ElementFromString( xml ).xpath("/config/path/image")[0].text
+	Dict['IMAGES_SERVER'] = XML.ElementFromString( xml ).xpath("/config/path/image")[0].text
 	CatalogueURL = XML.ElementFromString( xml ).xpath("/config/services/service[@name='GetCatalogueService']/url")[0].text
 	CatalogueURL = CatalogueURL.replace("-9.xml","-w9.xml")
 
 	try:
-		CATALOG_XML = HTTP.Request(CatalogueURL,cacheTime=CACHE_1HOUR)
+		Dict['CATALOG_XML'] = HTTP.Request(CatalogueURL,cacheTime=CACHE_1HOUR).content
 	except Ex.HTTPError, e:
 		Log(NAME + " Plugin : " + str(e))
 		return MessageContainer(NAME, "Erreur lors de la récupération du Catalogue.")
@@ -61,14 +58,14 @@ def VideoMainMenu():
 		return MessageContainer(NAME, "Erreur lors de la récupération du Catalogue.")
 
 
-	if CATALOG_XML.find( "<template_exchange_WEB>" ) == -1: return MessageContainer(NAME, "Flux XML non valide.")
+	if Dict['CATALOG_XML'].find( "<template_exchange_WEB>" ) == -1: return MessageContainer(NAME, "Flux XML non valide.")
 
-	finXML = CATALOG_XML.find( "</template_exchange_WEB>" ) + len( "</template_exchange_WEB>" )
-	CATALOG_XML = CATALOG_XML[ : finXML ]
+	finXML = Dict['CATALOG_XML'].find( "</template_exchange_WEB>" ) + len( "</template_exchange_WEB>" )
+	Dict['CATALOG_XML'] = Dict['CATALOG_XML'][ : finXML ]
 
-	for category in XML.ElementFromString(CATALOG_XML).xpath("//template_exchange_WEB/categorie"):
+	for category in XML.ElementFromString(Dict['CATALOG_XML']).xpath("//template_exchange_WEB/categorie"):
 		nom = category.xpath("./nom")[0].text
-		image = IMAGES_SERVER + category.get('big_img_url')
+		image = Dict['IMAGES_SERVER'] + category.get('big_img_url')
 		idCategorie = category.get('id')
 		dir.Append(Function(DirectoryItem(ListShows, title = nom, thumb = image), idCategorie = idCategorie, nomCategorie = nom))
 
@@ -76,16 +73,12 @@ def VideoMainMenu():
 
 
 def ListShows(sender, idCategorie, nomCategorie):
-
-	global CATALOG_XML
-	global IMAGES_SERVER
-
 	dir = MediaContainer(viewGroup="Coverflow", title1 = NAME, title2 = nomCategorie)
 	search = "/template_exchange_WEB/categorie[@id='" + idCategorie + "']/categorie"
 
-	for item in XML.ElementFromString(CATALOG_XML).xpath(search):
+	for item in XML.ElementFromString(Dict['CATALOG_XML']).xpath(search):
 		nom = item.xpath("nom")[0].text
-		image = IMAGES_SERVER + item.get('big_img_url')
+		image = Dict['IMAGES_SERVER'] + item.get('big_img_url')
 		idCategorie = item.get('id')
 
 		dir.Append(Function(DirectoryItem(ListEpisodes, title = nom, thumb = image), idCategorie = idCategorie, nomCategorie = nom))
@@ -94,24 +87,20 @@ def ListShows(sender, idCategorie, nomCategorie):
 
 
 def ListEpisodes(sender, idCategorie, nomCategorie):
-
-	global CATALOG_XML
-	global IMAGES_SERVER
-
 	dir = MediaContainer(viewGroup="InfoList", title1 = NAME, title2 = nomCategorie)
 	search = "//template_exchange_WEB/categorie/categorie[@id=" + idCategorie + "]/produit"
 
-	for episode in XML.ElementFromString(CATALOG_XML).xpath(search):
+	for episode in XML.ElementFromString(Dict['CATALOG_XML']).xpath(search):
 		idProduit = episode.get('id')
 		nom = episode.xpath("./nom")[0].text
 		description = episode.xpath("./resume")[0].text
-		image = IMAGES_SERVER + episode.get('big_img_url')
+		image = Dict['IMAGES_SERVER'] + episode.get('big_img_url')
 		video = episode.xpath("./fichemedia")[0].get('video_url')[:-4]
-		date_diffusion = datetime.datetime(*(time.strptime(episode.xpath("./diffusion")[0].get('date'), "%Y-%m-%d %H:%M:%S")[0:6])).strftime("%d/%m/%Y à %Hh%M")
+		date_diffusion = episode.xpath("./diffusion")[0].get('date').replace(" "," à ")
 		str_duree = episode.xpath("./fichemedia")[0].get('duree')
 		duree = long(str_duree) / 60
 		dureevideo = long(str_duree)*1000
 		description = description + '\n\nDiffusé le ' + date_diffusion + '\n' + 'Durée : ' + str(duree) + ' mn'
 		lienValide = "rtmp://m6dev.fcod.llnwd.net:443/a3100/d1/"
-		dir.Append(RTMPVideoItem(url = lienValide, clip = video, title = nom, subtitle = nomCategorie, summary = description, duration = dureevideo , thumb = image))
+		dir.Append(RTMPVideoItem(url = lienValide, width=640, height=375, clip = video, title = nom, subtitle = nomCategorie, summary = description, duration = dureevideo , thumb = image))
 	return dir
