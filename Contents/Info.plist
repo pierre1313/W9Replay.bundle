@@ -26,11 +26,11 @@
 	</array>
 	<key>PlexPluginConsoleLogging</key>
 	<string>1</string>
-	<key>PlexPluginDebug</key>
-	<string>0</string>
+	<key>PlexPluginConsoleLogging</key>
+	<string>1</string>
 	<key>PlexPluginMode</key>
 	<string>AlwaysOn</string>
 	<key>PlexPluginDevMode</key>
-	<string>1</string>
+	<string>0</string>
 </dict>
 </plist>
